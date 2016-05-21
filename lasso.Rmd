@@ -1,0 +1,19 @@
+# understanding how LASSO regression works
+
+This is a simple example of how the lasso regression model works. It uses a built in data set with the R package, mtcars. You can get details about this data set by typing help(“mtcars”) or you can find it on the web at
+
+https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/mtcars.html
+
+```{r run_preliminary_commands}
+save.image("backup.RData")
+rm(list=ls())
+```
+
+```{r review_of_mtcars_data}
+head(mtcars)
+```
+
+```{r save_everything}
+save.image("lasso.RData")
+load("backup.RData")
+```

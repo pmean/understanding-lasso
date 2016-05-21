@@ -1,17 +1,286 @@
 # understanding how LASSO regression works
 
-This is a simple example of how the lasso regression model works. It uses a built in data set with the R package, mtcars. You can get details about this data set by typing help(“mtcars”) or you can find it on the web at
-
-https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/mtcars.html
+This is a simple example of how the lasso regression model works.
 
 ```{r run_preliminary_commands}
 save.image("backup.RData")
 rm(list=ls())
+library("glmnet")
 ```
+
+It uses a built in data set with the R package, [mtcars](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/mtcars.html). You can get details about this data set by typing help(“mtcars”).
 
 ```{r review_of_mtcars_data}
 head(mtcars)
+summary(mtcars)
 ```
+
+The lasso regression model was originally developed in 1989. It looks like the 
+classic least squares regression estimate,
+
+but you add a constraint
+
+where 
+
+is the L1 norm,
+
+
+or more simply, the sum of the absolute values of the regression coefficients.
+You can define an equivalent form for the LASSO regression in terms of an L1
+penalty.
+
+Where k and λ are flip sides of the same coin. A very large value of λ
+corresponding to a very high penalty is equivalent to a very tight
+constraint on β or a value of k very close to zero.
+
+There’s a lot hidden in these formulas, so let’s look at things slowly
+and step by step. The calculations will look, by necessity, at a case
+with only two independent variables, even though the lasso only makes
+sense for settings where the number of independent variables are larger
+by several orders of magnitutde.
+
+```{r start_with_bivariate_case}
+v0 <- "mpg"
+v1 <- "disp"
+v2 <- "hp"
+```
+
+The two independent variables, disp and hp, are both negatively 
+correlated with mpg and positively correlated with each other.
+
+```{r calculate_correlations}
+round(cor(mtcars[, c(v0,v1,v2)]), 2)
+```
+
+The units of measurement for these two independent variables are quite
+different, so to make comparisons more fair, you should standardize them.
+There’s less of a need to standardize the dependent variable, but let’s
+do that also, just for simplicity.
+
+```{r standardize_everything}
+standardize <- function(x) {(x-mean(x))/sd(x)}
+z0 <- standardize(mtcars[, v0])
+z1 <- standardize(mtcars[, v1])
+z2 <- standardize(mtcars[, v2])
+m0 <- lm(z0~z1+z2-1)
+```
+
+The linear regression model fir here does not include an intercept,
+because all the variables have already been standardized to a mean 
+of zero. The simple least squares estimates are -0.62 for disp and
+-0.28 for hp.
+
+```{r draw_minimization_surface}
+n <- 41
+s <- seq(-1, 0.5, length=n)
+rss <- matrix(NA, nrow=n, ncol=n)
+for (i in 1:n) {
+  for (j in 1:n) {
+    rss[i, j] <- sum((z0-s[i]*z1-s[j]*z2)^2)
+  }
+}
+persp(s, s, rss, xlab="beta1", ylab="beta2", zlab="rss")
+```
+
+You may find the contour plot of this three dimensional surface to
+be easier to follow.
+
+```{r draw_contour_plot,fig.width=5, fig.height=5}
+draw_axes <- function() {
+  k2 <- seq(min(s), max(s), length=4)
+  par(mar=c(4.6, 4.6, 0.6, 0.6), xaxs="i", yaxs="i")
+  plot(1.02*range(s), 1.02*range(s), type="n", xlab="beta1", ylab="beta2", axes=FALSE)
+  axis(side=1, pos=0, col="gray", at=k2, labels=rep(" ", 4))
+  axis(side=2, pos=0, col="gray", at=k2, labels=rep(" ", 4))
+  text(k2[-3], -0.05, k2[-3], cex=0.5, col="black")
+  text(-0.05, k2[-3], k2[-3], cex=0.5, col="black")
+}
+k1 <- c(1, 1.1, 1.2, 1.5, 2, 2.5, 3:9)
+k1 <- c(0.1*k1, k1, 10*k1, 100*k1, 1000*k1)
+
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="black")
+m1 <- lm(z0~z1+z2-1)
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+```
+
+The level curves (the values where the thre dimension surface is constant)
+are elliptical, which reflects the correlation in beta1 and beta2 that is
+induced by the correlation between z1 and z2.
+
+The small "X" represents the minimum value, or the least squares solution.
+It corresponds to height of `r round(min(rss), 2)` units.
+
+Now suppose that you were willing to sacrifice a bit on the residual sum
+of squares. You'd be willing to settle for a value of beta1 and beta2 that
+produced a residual sum of squares of `r min(k1[k1>min(rss)])` instead of
+`r round(min(rss), 1)`. In exchange, you'd get a solution that was a bit
+closer to zero. What would that value be?
+
+```{r display_ridge_solutions, fig.width=5, fig.height=5}
+find_closest <- function(x, target) {
+  d <- abs(x-target)
+  return(which(d==min(d))[1])
+}
+draw_circle <- function(r) {
+  radians <- seq(0, 2*pi, length=100)
+  lines(r*sin(radians), r*cos(radians))
+}
+m2 <- glmnet(cbind(z1, z2), z0, alpha=0, intercept=FALSE, nlambda=1000)
+n2 <- dim(m2$beta)[2]
+rss_m2 <- rep(NA,n2)
+for (i in 1:n2) {
+  rss_m2[i] <- sum((z0 - m2$beta[1, i]*z1 -m2$beta[2, i]*z2)^2)
+}
+k1 <- k1[k1>min(rss)]
+r1 <- find_closest(rss_m2, k1[1])
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss,nrow=n), levels=k1[1], add=TRUE, col="black")
+draw_circle(sqrt(m2$beta[1, r1]^2+m2$beta[2, r1]^2))
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+arrows(coef(m1)[1], coef(m1)[2], m2$beta[1, r1], m2$beta[2, r1], len=0.05)
+```
+
+For Ridge Regression, find the circle which just barely touches the 
+ellipse corresponding to a level surface of `r k1[1]`. These values
+are beta1=`r round(m2$beta[1, r1], 2)` and
+beta2=`r round(m2$beta[2, r1], 2)`.
+
+If you wanted a bit more simplicity and could suffer a bit more
+on the residual sums of squares end of things, you could find
+the point on the level surface `r k1[2]` or `r k1[3]`.
+
+```{r draw_two_more, fig.width=5, fig.height=5}
+r2 <- find_closest(rss_m2, k1[2])
+r3 <- find_closest(rss_m2, k1[3])
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss,nrow=n), levels=k1[2], add=TRUE, col="black")
+draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+arrows(coef(m1)[1], coef(m1)[2], m2$beta[1, r1], m2$beta[2, r1], len=0.05)
+arrows(m2$beta[1, r1], m2$beta[2, r1], m2$beta[1, r2], m2$beta[2, r2], len=0.05)
+
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss,nrow=n), levels=k1[3], add=TRUE, col="black")
+draw_circle(sqrt(m2$beta[1, r3]^2+m2$beta[2, r3]^2))
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+arrows(coef(m1)[1], coef(m1)[2], m2$beta[1, r1], m2$beta[2, r1], len=0.05)
+arrows(m2$beta[1, r1], m2$beta[2, r1], m2$beta[1, r2], m2$beta[2, r2], len=0.05)
+arrows(m2$beta[1, r2], m2$beta[2, r2], m2$beta[1, r3], m2$beta[2, r3], len=0.05)
+```
+
+You could do this for any level surface, including those level surfaces
+in between the ones shown here.
+
+```{r draw_all_ridge_solutions, fig.width=5, fig.height=5}
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+segments(coef(m1)[1], coef(m1)[2], m2$beta[1, n2], m2$beta[2, n2])
+lines(m2$beta[1, ], m2$beta[2, ])
+arrows(m2$beta[1, 2], m2$beta[2, 2], m2$beta[1, 1], m2$beta[2, 1], len=0.05)
+```
+
+The black curve represents all the Ridge Regression solutions.
+
+Ridge Regression measures simplicity as the straight line distance 
+between (0, 0) and (beta1, beta2). This is known as Euclidean distance
+or L2 distance. Values that are at the same L2 distance from the origin
+correspond to circles.
+
+The LASSO regression model works much like Ridge Regression, except
+it use L1 or absolute value distance.
+
+```{r draw_first_lasso, fig.width=5, fig.height=5}
+m3 <- glmnet(cbind(z1, z2), z0, alpha=1, intercept=FALSE, nlambda=1000)
+n3 <- dim(m3$beta)[2]
+rss_m3 <- rep(NA,n3)
+for (i in 1:n3) {
+  rss_m3[i] <- sum((z0 - m3$beta[1, i]*z1 -m3$beta[2, i]*z2)^2)
+}
+r1 <- find_closest(rss_m3, k1[1])
+r2 <- find_closest(rss_m3, k1[2])
+r3 <- find_closest(rss_m3, k1[3])
+
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss,nrow=n), levels=k1[1], add=TRUE, col="black")
+# draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
+d <- abs(m3$beta[1, r1])+abs(m3$beta[2, r1])
+segments( d, 0, 0, d)
+segments( 0, d,-d, 0)
+segments(-d, 0, 0,-d)
+segments( 0,-d, d, 0)
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+arrows(coef(m1)[1], coef(m1)[2], m3$beta[1, r1], m3$beta[2, r1], len=0.05)
+```
+
+```{r draw_two_more_lassos, fig.width=5, fig.height=5}
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss,nrow=n), levels=k1[2], add=TRUE, col="black")
+# draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
+d <- abs(m3$beta[1, r2])+abs(m3$beta[2, r2])
+segments( d, 0, 0, d)
+segments( 0, d,-d, 0)
+segments(-d, 0, 0,-d)
+segments( 0,-d, d, 0)
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+arrows(coef(m1)[1], coef(m1)[2], m3$beta[1, r1], m3$beta[2, r1], len=0.05)
+arrows(m3$beta[1, r1], m3$beta[2, r1], m3$beta[1, r2], m3$beta[2, r2], len=0.05)
+
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss,nrow=n), levels=k1[3], add=TRUE, col="black")
+# draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
+d <- abs(m3$beta[1, r3])+abs(m3$beta[2, r3])
+segments( d, 0, 0, d)
+segments( 0, d,-d, 0)
+segments(-d, 0, 0,-d)
+segments( 0,-d, d, 0)
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+arrows(coef(m1)[1], coef(m1)[2], m3$beta[1, r1], m3$beta[2, r1], len=0.05)
+arrows(m3$beta[1, r1], m3$beta[2, r1], m3$beta[1, r2], m3$beta[2, r2], len=0.05)
+arrows(m3$beta[1, r2], m3$beta[2, r2], m3$beta[1, r3], m3$beta[2, r3], len=0.05)
+```
+
+```{r draw_all_lasso_solutions, fig.width=5, fig.height=5}
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
+text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+segments(coef(m1)[1], coef(m1)[2], m3$beta[1, n3], m3$beta[2, n3])
+lines(m3$beta[1, ], m3$beta[2, ])
+arrows(m3$beta[1, 2], m3$beta[2, 2], m3$beta[1, 1], m3$beta[2, 1], len=0.05)
+```
+
+
+```{r eval=FALSE}
+text(m2$beta[1, 940], m2$beta[2, 940], "8", cex=2)
+r <- sqrt(m2$beta[1, ]^2 + m2$beta[2, ]^2)
+pi_seq <- seq(0, 2*pi, length=100)
+lines(x=r[940]*cos(pi_seq), y=r[940]*sin(pi_seq))
+draw_axes()
+contour(s, s, matrix(rss,nrow=n), levels=8, add=TRUE, col="blue")
+m3 <- glmnet(cbind(z1, z2), z0, alpha=1, intercept=FALSE, nlambda=1000)
+segments(coef(m1)[1], coef(m1)[2], m2$beta[1, n2], m2$beta[2, n2])
+n3 <- dim(m3$beta)[2]
+segments(coef(m1)[1], coef(m1)[2], m3$beta[1, n3], m3$beta[2, n3])
+lines(m3$beta[1, ], m3$beta[2, ])
+```
+
+```{r calculate_model_rss, eval=FALSE}
+rss_m2 <- rep(NA,n2)
+for (i in 1:n2) {
+  rss_m2[i] <- sum((z0 - m2$beta[1, i]*z1 -m2$beta[2, i]*z2)^2)
+}
+print(rss_m2)
+# text(m2$beta[1, 940], m2$beta[2, 940], "8", cex=2)
+```
+
+Save everything for possible re-use.
 
 ```{r save_everything}
 save.image("lasso.RData")

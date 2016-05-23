@@ -8,36 +8,29 @@ rm(list=ls())
 library("glmnet")
 ```
 
-It uses a built in data set with the R package, [mtcars](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/mtcars.html). You can get details about this data set by typing help(“mtcars”).
+The lasso regression model was originally developed in 1989.
+It is an alterative to the classic least squares estimate 
+that avoids many of the problems with overfitting when
+you have a large number of indepednent variables.
+
+You can't understand the lasso fully without understanding some
+of the context of other regression models. The examples will look, 
+by necessity, at a case with only two independent variables, even
+though the lasso only makes sense for settings where the number of
+independent variables are larger by several orders of magnitutde.
+
+Start with a built in data set with the R package, 
+[mtcars](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/mtcars.html).
+You can get details about this data set by typing help(“mtcars”).
 
 ```{r review_of_mtcars_data}
 head(mtcars)
 summary(mtcars)
 ```
 
-The lasso regression model was originally developed in 1989. It looks like the 
-classic least squares regression estimate,
-
-but you add a constraint
-
-where 
-
-is the L1 norm,
-
-
-or more simply, the sum of the absolute values of the regression coefficients.
-You can define an equivalent form for the LASSO regression in terms of an L1
-penalty.
-
-Where k and λ are flip sides of the same coin. A very large value of λ
-corresponding to a very high penalty is equivalent to a very tight
-constraint on β or a value of k very close to zero.
-
-There’s a lot hidden in these formulas, so let’s look at things slowly
-and step by step. The calculations will look, by necessity, at a case
-with only two independent variables, even though the lasso only makes
-sense for settings where the number of independent variables are larger
-by several orders of magnitutde.
+You can pick any three variables in the data set. The first variable (v0)
+will be the dependent variable and the other two variables (v1, v2) will 
+be the independent variables.
 
 ```{r start_with_bivariate_case}
 v0 <- "mpg"
@@ -45,8 +38,7 @@ v1 <- "disp"
 v2 <- "hp"
 ```
 
-The two independent variables, disp and hp, are both negatively 
-correlated with mpg and positively correlated with each other.
+Examine the correlations among these variables.
 
 ```{r calculate_correlations}
 round(cor(mtcars[, c(v0,v1,v2)]), 2)
@@ -63,16 +55,28 @@ z0 <- standardize(mtcars[, v0])
 z1 <- standardize(mtcars[, v1])
 z2 <- standardize(mtcars[, v2])
 m0 <- lm(z0~z1+z2-1)
+c0 <- coef(m0)
 ```
 
-The linear regression model fir here does not include an intercept,
-because all the variables have already been standardized to a mean 
-of zero. The simple least squares estimates are -0.62 for disp and
--0.28 for hp.
+The lm function uses the traditional linear regression approach.
+
+Just a technical point here: the linear regression model fit here
+does not include an intercept, because all the variables have 
+already been standardized to a mean of zero. The simple least
+squares estimates are `r round(c0[1], 2)` for `r v1` and
+`r round(c0[2], 2)` for `r v2`.
+
+The traditional linear regression model is sometimes called
+least squares regression, because it minimizes (least)
+the sum of squared deviations (squares) of the residuals.
+
+TO understand this better, compute the residual sum of
+squared deviations (rss) for a range of possible regression
+coefficients.
 
 ```{r draw_minimization_surface}
 n <- 41
-s <- seq(-1, 0.5, length=n)
+s <- seq(-1, 1, length=n)
 rss <- matrix(NA, nrow=n, ncol=n)
 for (i in 1:n) {
   for (j in 1:n) {
@@ -87,11 +91,11 @@ be easier to follow.
 
 ```{r draw_contour_plot,fig.width=5, fig.height=5}
 draw_axes <- function() {
-  k2 <- seq(min(s), max(s), length=4)
+  k2 <- seq(-1, 1, length=5)
   par(mar=c(4.6, 4.6, 0.6, 0.6), xaxs="i", yaxs="i")
   plot(1.02*range(s), 1.02*range(s), type="n", xlab="beta1", ylab="beta2", axes=FALSE)
-  axis(side=1, pos=0, col="gray", at=k2, labels=rep(" ", 4))
-  axis(side=2, pos=0, col="gray", at=k2, labels=rep(" ", 4))
+  axis(side=1, pos=0, col="gray", at=k2, labels=rep(" ", length(k2)))
+  axis(side=2, pos=0, col="gray", at=k2, labels=rep(" ", length(k2)))
   text(k2[-3], -0.05, k2[-3], cex=0.5, col="black")
   text(-0.05, k2[-3], k2[-3], cex=0.5, col="black")
 }
@@ -102,6 +106,7 @@ draw_axes()
 contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="black")
 m1 <- lm(z0~z1+z2-1)
 text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
+k1 <- k1[k1>min(rss)]
 ```
 
 The level curves (the values where the thre dimension surface is constant)
@@ -113,9 +118,11 @@ It corresponds to height of `r round(min(rss), 2)` units.
 
 Now suppose that you were willing to sacrifice a bit on the residual sum
 of squares. You'd be willing to settle for a value of beta1 and beta2 that
-produced a residual sum of squares of `r min(k1[k1>min(rss)])` instead of
+produced a residual sum of squares of `r k1[1]` instead of
 `r round(min(rss), 1)`. In exchange, you'd get a solution that was a bit
-closer to zero. What would that value be?
+closer to zero. What would that value be? Any value on the ellipse labelled 
+`r k1[1]` would be equally desirable from the least squares perspective. But
+the point on the ellipse closest to (0, 0) has the most simplicity.
 
 ```{r display_ridge_solutions, fig.width=5, fig.height=5}
 find_closest <- function(x, target) {
@@ -132,7 +139,6 @@ rss_m2 <- rep(NA,n2)
 for (i in 1:n2) {
   rss_m2[i] <- sum((z0 - m2$beta[1, i]*z1 -m2$beta[2, i]*z2)^2)
 }
-k1 <- k1[k1>min(rss)]
 r1 <- find_closest(rss_m2, k1[1])
 draw_axes()
 contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
@@ -146,6 +152,18 @@ For Ridge Regression, find the circle which just barely touches the
 ellipse corresponding to a level surface of `r k1[1]`. These values
 are beta1=`r round(m2$beta[1, r1], 2)` and
 beta2=`r round(m2$beta[2, r1], 2)`.
+
+Now what do I mean by "simplicity"? In this case, I mean less of a
+tendency to produce extreme predictions. Regression coefficients that
+are flatter, that is, closer to zero, have less of a tendency to
+produce extreme predictions.
+
+Extreme predictions are sometimes okay, but they are often a symptom
+of overfitting. 
+
+Now Ridge Regression offers you a multitude of choices, depending
+on the trade-offs you are willing to make between efficiency (small
+rss) and simplicity (regression coefficients close to zero).
 
 If you wanted a bit more simplicity and could suffer a bit more
 on the residual sums of squares end of things, you could find
@@ -188,7 +206,10 @@ The black curve represents all the Ridge Regression solutions.
 
 Ridge Regression measures simplicity as the straight line distance 
 between (0, 0) and (beta1, beta2). This is known as Euclidean distance
-or L2 distance. Values that are at the same L2 distance from the origin
+or L2 distance. The formula for L2 distance is
+$||\beta||_2 = \sqrt(\beta1^1)$
+
+Values that are at the same L2 distance from the origin
 correspond to circles.
 
 The LASSO regression model works much like Ridge Regression, except

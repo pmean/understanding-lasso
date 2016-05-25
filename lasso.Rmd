@@ -110,14 +110,14 @@ k1 <- k1[k1>min(rss)]
 ```
 
 The level curves (the values where the thre dimension surface is constant)
-are elliptical, which reflects the correlation in beta1 and beta2 that is
+are elliptical, which reflects the correlation in $\hat\beta_1$ and $\hat\beta_2$ that is
 induced by the correlation between z1 and z2.
 
 The small "X" represents the minimum value, or the least squares solution.
 It corresponds to height of `r round(min(rss), 2)` units.
 
 Now suppose that you were willing to sacrifice a bit on the residual sum
-of squares. You'd be willing to settle for a value of beta1 and beta2 that
+of squares. You'd be willing to settle for a value of $\hat\beta_1$ and $\hat\beta_2$ that
 produced a residual sum of squares of `r k1[1]` instead of
 `r round(min(rss), 1)`. In exchange, you'd get a solution that was a bit
 closer to zero. What would that value be? Any value on the ellipse labelled 
@@ -150,8 +150,8 @@ arrows(coef(m1)[1], coef(m1)[2], m2$beta[1, r1], m2$beta[2, r1], len=0.05)
 
 For Ridge Regression, find the circle which just barely touches the 
 ellipse corresponding to a level surface of `r k1[1]`. These values
-are beta1=`r round(m2$beta[1, r1], 2)` and
-beta2=`r round(m2$beta[2, r1], 2)`.
+are $\hat\beta_1$=`r round(m2$beta[1, r1], 2)` and
+$\hat\beta_2$=`r round(m2$beta[2, r1], 2)`.
 
 Now what do I mean by "simplicity"? In this case, I mean less of a
 tendency to produce extreme predictions. Regression coefficients that
@@ -205,15 +205,38 @@ arrows(m2$beta[1, 2], m2$beta[2, 2], m2$beta[1, 1], m2$beta[2, 1], len=0.05)
 The black curve represents all the Ridge Regression solutions.
 
 Ridge Regression measures simplicity as the straight line distance 
-between (0, 0) and (beta1, beta2). This is known as Euclidean distance
-or L2 distance. The formula for L2 distance is
-$||\beta||_2 = \sqrt(\beta1^1)$
+between (0, 0) and ($\hat{\beta_1}$, $\hat{\beta_2}$). This is known as Euclidean distance
+or $L^2$ distance. The formula for $L^2$ distance is
+$\sqrt{\hat{\beta_1} ^2+\hat{\beta_2}^2}$
 
-Values that are at the same L2 distance from the origin
+Values that are at the same $L^2$ distance from the origin
 correspond to circles.
 
 The LASSO regression model works much like Ridge Regression, except
-it use L1 or absolute value distance.
+it use $L^1$ or absolute value distance. The formula for $L^1$ distance is 
+$|\hat\beta_1|+|\hat\beta_2|$. 
+
+While $L^2$ distance represents the length of a diagonal path from 
+($\hat{\beta_1}$, $\hat{\beta_2}$) to (0, 0), the $L^1$ represents the length of
+the path that goes vertically to the X-axis and the horizontally to the Y-axis.
+
+```{r L1_distance, fig.width=5, fig.height=5}
+draw_axes()
+arrows(-0.5, -0.5, 0, 0, len=0.05)
+text(-0.25, -0.20, "L2 distance", srt=45)
+arrows(-0.5, -0.5, -0.5, 0, len=0.05)
+arrows(-0.5, 0, 0, 0, len=0.05)
+text(-0.55, -0.01, "L1", srt=90, adj=1)
+text(-0.49, 0.05, "distance", adj=0)
+```
+
+You get the same $L^1$ distance, of course, if you go first horizontally to the
+Y-axis and then vertically to the X-axis. A diamond (actually a square rotated
+to 45 degrees) represents the set of points that are equally distant
+from the origin using the $L^1$ concept of distance.
+
+The Lasso model finds the largest diamond that just barely touches the 
+level surface.
 
 ```{r draw_first_lasso, fig.width=5, fig.height=5}
 m3 <- glmnet(cbind(z1, z2), z0, alpha=1, intercept=FALSE, nlambda=1000)
@@ -238,6 +261,8 @@ segments( 0,-d, d, 0)
 text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
 arrows(coef(m1)[1], coef(m1)[2], m3$beta[1, r1], m3$beta[2, r1], len=0.05)
 ```
+
+Here are a couple of different Lasso fits.
 
 ```{r draw_two_more_lassos, fig.width=5, fig.height=5}
 draw_axes()
@@ -268,6 +293,8 @@ arrows(m3$beta[1, r1], m3$beta[2, r1], m3$beta[1, r2], m3$beta[2, r2], len=0.05)
 arrows(m3$beta[1, r2], m3$beta[2, r2], m3$beta[1, r3], m3$beta[2, r3], len=0.05)
 ```
 
+Here is the set of all Lasso fits.
+
 ```{r draw_all_lasso_solutions, fig.width=5, fig.height=5}
 draw_axes()
 contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
@@ -277,28 +304,43 @@ lines(m3$beta[1, ], m3$beta[2, ])
 arrows(m3$beta[1, 2], m3$beta[2, 2], m3$beta[1, 1], m3$beta[2, 1], len=0.05)
 ```
 
+While both Ridge Regression and Lasso regression find solutions that are
+closer to the origin, the Lasso regression, at least in this simple case,
+heads off a 45 degree angle. Once the Lasso regression meets one of the
+axes, it heads along that axis towards zero.
 
-```{r eval=FALSE}
-text(m2$beta[1, 940], m2$beta[2, 940], "8", cex=2)
-r <- sqrt(m2$beta[1, ]^2 + m2$beta[2, ]^2)
-pi_seq <- seq(0, 2*pi, length=100)
-lines(x=r[940]*cos(pi_seq), y=r[940]*sin(pi_seq))
-draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=8, add=TRUE, col="blue")
-m3 <- glmnet(cbind(z1, z2), z0, alpha=1, intercept=FALSE, nlambda=1000)
-segments(coef(m1)[1], coef(m1)[2], m2$beta[1, n2], m2$beta[2, n2])
-n3 <- dim(m3$beta)[2]
-segments(coef(m1)[1], coef(m1)[2], m3$beta[1, n3], m3$beta[2, n3])
-lines(m3$beta[1, ], m3$beta[2, ])
+While the behavior is more complicated with more than two independent variables,
+the general tendency of the Lasso regression model is to shrink towards the
+various axes, zeroing out one coefficient after another.
+
+This is a bonus of Lasso; It avoids overfitting not just by flattening out all
+the slopes, it preferentially removes some of the slopes entirely.
+
+Let's see how the Lasso works for a slightly more complex setting. 
+The mtcars data set has ten variables. Let's use the last nine
+of these variables to predict the first variable, mpg.
+
+The Lasso is really intended for much big cases than this, but you can
+still learn a lot from this small example.
+
+```{r lasso_with_more_variables}
+# By default, the glmnet function standardizes all the independent variables,
+# but I also wanted to standardize the dependent variable for consistency
+# with the earlier examples.
+m1 <- glmnet(x=as.matrix(mtcars[, -1]), y=standardize(mtcars[, 1]), intercept=FALSE)
+print(m1)
+summary(m1)
+plot(m1)
 ```
 
-```{r calculate_model_rss, eval=FALSE}
-rss_m2 <- rep(NA,n2)
-for (i in 1:n2) {
-  rss_m2[i] <- sum((z0 - m2$beta[1, i]*z1 -m2$beta[2, i]*z2)^2)
-}
-print(rss_m2)
-# text(m2$beta[1, 940], m2$beta[2, 940], "8", cex=2)
+The plot is not labelled, but it shows the shrinkage of the lasso coefficients
+as you move from the right to the left. Here is a series of plots showing how the
+Lasso coefficients change.
+
+```{r lasso_with_labels, fig.width=5, fig.height=9}
+l1_dist <- apply(m1$beta, 2, function(x) sum(abs(x)))
+plot(m1, xlim=c(0, 1.3*max(l1_dist)))
+text(1.02*max(l1_dist), m1$beta[, 80], paste(names(mtcars[, -1]), round(m1$beta[, 80], 2)), adj=0)
 ```
 
 Save everything for possible re-use.

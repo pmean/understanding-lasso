@@ -1,4 +1,4 @@
-# understanding how LASSO regression works
+# understanding how lasso regression works
 
 This is a simple example of how the lasso regression model works.
 
@@ -74,7 +74,7 @@ TO understand this better, compute the residual sum of
 squared deviations (rss) for a range of possible regression
 coefficients.
 
-```{r draw_minimization_surface}
+```{r draw_minimization_surface, fig.width=5, fig.height=5}
 n_lstsq <- 41
 s <- seq(-1, 1, length=n_lstsq)
 rss_lstsq <- matrix(NA, nrow=n_lstsq, ncol=n_lstsq)
@@ -147,7 +147,7 @@ text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
 arrows(lstsq_beta[1], lstsq_beta[2], ridge$beta[1, r1], ridge$beta[2, r1], len=0.05)
 ```
 
-For Ridge Regression, find the circle which just barely touches the 
+For ridge regression, find the circle which just barely touches the 
 ellipse corresponding to a level surface of `r k1[1]`. These values
 are $\hat\beta_1$=`r round(ridge$beta[1, r1], 2)` and
 $\hat\beta_2$=`r round(ridge$beta[2, r1], 2)`.
@@ -160,7 +160,7 @@ produce extreme predictions.
 Extreme predictions are sometimes okay, but they are often a symptom
 of overfitting. 
 
-Now Ridge Regression offers you a multitude of choices, depending
+Now ridge regression offers you a multitude of choices, depending
 on the trade-offs you are willing to make between efficiency (small
 rss) and simplicity (regression coefficients close to zero).
 
@@ -201,9 +201,9 @@ lines(ridge$beta[1, ], ridge$beta[2, ])
 arrows(ridge$beta[1, 2], ridge$beta[2, 2], ridge$beta[1, 1], ridge$beta[2, 1], len=0.05)
 ```
 
-The black curve represents all the Ridge Regression solutions.
+The black curve represents all the ridge regression solutions.
 
-Ridge Regression measures simplicity as the straight line distance 
+Ridge regression measures simplicity as the straight line distance 
 between (0, 0) and ($\hat{\beta_1}$, $\hat{\beta_2}$). This is known as Euclidean distance
 or $L^2$ distance. The formula for $L^2$ distance is
 $\sqrt{\hat{\beta_1} ^2+\hat{\beta_2}^2}$
@@ -211,7 +211,7 @@ $\sqrt{\hat{\beta_1} ^2+\hat{\beta_2}^2}$
 Values that are at the same $L^2$ distance from the origin
 correspond to circles.
 
-The LASSO regression model works much like Ridge Regression, except
+The lasso regression model works much like ridge regression, except
 it use $L^1$ or absolute value distance. The formula for $L^1$ distance is 
 $|\hat\beta_1|+|\hat\beta_2|$. 
 
@@ -234,7 +234,7 @@ Y-axis and then vertically to the X-axis. A diamond (actually a square rotated
 to 45 degrees) represents the set of points that are equally distant
 from the origin using the $L^1$ concept of distance.
 
-The Lasso model finds the largest diamond that just barely touches the 
+The lasso model finds the largest diamond that just barely touches the 
 level surface.
 
 ```{r draw_first_lasso, fig.width=5, fig.height=5}
@@ -260,7 +260,7 @@ text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
 arrows(lstsq_beta[1], lstsq_beta[2], lasso$beta[1, r1], lasso$beta[2, r1], len=0.05)
 ```
 
-Here are a couple of different Lasso fits.
+Here are a couple of different lasso fits.
 
 ```{r draw_two_more_lassos, fig.width=5, fig.height=5}
 draw_axes()
@@ -289,7 +289,7 @@ arrows(lasso$beta[1, r1], lasso$beta[2, r1], lasso$beta[1, r2], lasso$beta[2, r2
 arrows(lasso$beta[1, r2], lasso$beta[2, r2], lasso$beta[1, r3], lasso$beta[2, r3], len=0.05)
 ```
 
-Here is the set of all Lasso fits.
+Here is the set of all lasso fits.
 
 ```{r draw_all_lasso_solutions, fig.width=5, fig.height=5}
 draw_axes()
@@ -300,31 +300,31 @@ lines(lasso$beta[1, ], lasso$beta[2, ])
 arrows(lasso$beta[1, 2], lasso$beta[2, 2], lasso$beta[1, 1], lasso$beta[2, 1], len=0.05)
 ```
 
-While both Ridge Regression and Lasso regression find solutions that are
-closer to the origin, the Lasso regression, at least in this simple case,
-heads off a 45 degree angle. Once the Lasso regression meets one of the
+While both ridge regression and lasso regression find solutions that are
+closer to the origin, the lasso regression, at least in this simple case,
+heads off a 45 degree angle. Once the lasso regression meets one of the
 axes, it heads along that axis towards zero.
 
 While the behavior is more complicated with more than two independent variables,
-the general tendency of the Lasso regression model is to shrink towards the
+the general tendency of the lasso regression model is to shrink towards the
 various axes, zeroing out one coefficient after another.
 
-This is a bonus of Lasso; It avoids overfitting not just by flattening out all
+This is a bonus of lasso; It avoids overfitting not just by flattening out all
 the slopes. It also avoids overfitting by preferentially removes some of the
 slopes entirely.
 
-This makes the Lasso regression model a feature selection technique, and it
+This makes the lasso regression model a feature selection technique, and it
 avoids all of the problems of overfitting that a simpler feature selection
 technique, stepwise regression, suffers from.
 
-The Lasso acronym (least absolute shrinkage and selection operator) is an
+The lasso acronym (least absolute shrinkage and selection operator) is an
 description of the dual nature of this model.
 
-Let's see how the Lasso works for a slightly more complex setting. 
+Let's see how the lasso works for a slightly more complex setting. 
 The mtcars data set has ten variables. Let's use the last nine
 of these variables to predict the first variable, mpg.
 
-The Lasso is really intended for much bigger cases than this, but you can
+The lasso is really intended for much bigger cases than this, but you can
 still learn a lot from this small example.
 
 ```{r lasso_with_more_variables, fig.width=5, fig.height=5}
@@ -338,7 +338,7 @@ plot(lasso)
 The plot above shows the shrinkage of the lasso coefficients
 as you move from the right to the left, but unfortunately,
 it is not clearly labelled. Here is a series of plots 
-with better labels showing how the Lasso coefficients change.
+with better labels showing how the lasso coefficients change.
 
 ```{r lasso_with_labels, fig.width=5, fig.height=5}
 n <- dim(lasso$beta)[1]
@@ -362,7 +362,7 @@ for (l in 12:1) {
 }
 ```
 
-Contrast this with Ridge Regression, which flattens out everything, but doesn't zero out any of the 
+Contrast this with ridge regression, which flattens out everything, but doesn't zero out any of the 
 regression coefficients.
 
 ```{r ridge_with_labels, fig.width=5, fig.height=5}
@@ -389,11 +389,11 @@ for (l in 12:1) {
 ```
 
 
-You can get more complicated than this. Although the Lasso regression model does fairly well,
+You can get more complicated than this. Although the lasso regression model does fairly well,
 it can sometimes get in a bit of trouble if there are several variables which are highly
 intercorrelated and which all predict the dependent variable with about the same
 strength. You might find better performance with Elastic Net regression, a hybrid model
-that combines some of the features of Ridge Regression with Lasso regression.
+that combines some of the features of ridge regression with lasso regression.
 
 Save everything for possible re-use.
 

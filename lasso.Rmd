@@ -314,16 +314,21 @@ the general tendency of the Lasso regression model is to shrink towards the
 various axes, zeroing out one coefficient after another.
 
 This is a bonus of Lasso; It avoids overfitting not just by flattening out all
-the slopes, it preferentially removes some of the slopes entirely.
+the slopes. It also avoids overfitting by preferentially removes some of the
+slopes entirely.
+
+This makes the Lasso regression model a feature selection technique, and it
+avoids all of the problems of overfitting that a simpler feature selection
+technique, stepwise regression, suffers from.
 
 Let's see how the Lasso works for a slightly more complex setting. 
 The mtcars data set has ten variables. Let's use the last nine
 of these variables to predict the first variable, mpg.
 
-The Lasso is really intended for much big cases than this, but you can
+The Lasso is really intended for much bigger cases than this, but you can
 still learn a lot from this small example.
 
-```{r lasso_with_more_variables}
+```{r lasso_with_more_variables, fig.width=5, fig.height=5}
 # By default, the glmnet function standardizes all the independent variables,
 # but I also wanted to standardize the dependent variable for consistency
 # with the earlier examples.
@@ -337,10 +342,24 @@ The plot is not labelled, but it shows the shrinkage of the lasso coefficients
 as you move from the right to the left. Here is a series of plots showing how the
 Lasso coefficients change.
 
-```{r lasso_with_labels, fig.width=5, fig.height=9}
+```{r lasso_with_labels, fig.width=5, fig.height=5}
+n <- dim(m1$beta)[1]
+m <- dim(m1$beta)[2]
 l1_dist <- apply(m1$beta, 2, function(x) sum(abs(x)))
-plot(m1, xlim=c(0, 1.3*max(l1_dist)))
-text(1.02*max(l1_dist), m1$beta[, 80], paste(names(mtcars[, -1]), round(m1$beta[, 80], 2)), adj=0)
+d1 <- 0.02*l1_dist[m]
+d2 <- 0.18*l1_dist[m]
+for (j in c(80,60,50,40,30,25,20,15,10,8,6,4,3)) {
+  xl <- paste("L1 distance: ", round(l1_dist[j], 2))
+  plot(m1, xlim=c(0, 1.4*max(l1_dist)),type="n", xlab=xl)
+  for (i in 1:n) {
+    lines(l1_dist[1:m], m1$beta[i, 1:m], col="lightgray")
+    lines(l1_dist[1:j], m1$beta[i, 1:j])
+    if (abs(m1$beta[i,j]) > 0) {
+      text(d1+l1_dist[j], m1$beta[i, j], names(mtcars[i+1]), adj=0)
+      text(d2+l1_dist[j], m1$beta[i, j], signif(m1$beta[i, j], 2), adj=0)
+    }
+  }
+}
 ```
 
 Save everything for possible re-use.

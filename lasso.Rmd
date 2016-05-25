@@ -54,8 +54,8 @@ standardize <- function(x) {(x-mean(x))/sd(x)}
 z0 <- standardize(mtcars[, v0])
 z1 <- standardize(mtcars[, v1])
 z2 <- standardize(mtcars[, v2])
-m0 <- lm(z0~z1+z2-1)
-c0 <- coef(m0)
+lstsq <- lm(z0~z1+z2-1)
+lstsq_beta <- coef(lstsq)
 ```
 
 The lm function uses the traditional linear regression approach.
@@ -63,8 +63,8 @@ The lm function uses the traditional linear regression approach.
 Just a technical point here: the linear regression model fit here
 does not include an intercept, because all the variables have 
 already been standardized to a mean of zero. The simple least
-squares estimates are `r round(c0[1], 2)` for `r v1` and
-`r round(c0[2], 2)` for `r v2`.
+squares estimates are `r round(lstsq_beta[1], 2)` for `r v1` and
+`r round(lstsq_beta[2], 2)` for `r v2`.
 
 The traditional linear regression model is sometimes called
 least squares regression, because it minimizes (least)
@@ -75,15 +75,15 @@ squared deviations (rss) for a range of possible regression
 coefficients.
 
 ```{r draw_minimization_surface}
-n <- 41
-s <- seq(-1, 1, length=n)
-rss <- matrix(NA, nrow=n, ncol=n)
-for (i in 1:n) {
-  for (j in 1:n) {
-    rss[i, j] <- sum((z0-s[i]*z1-s[j]*z2)^2)
+n_lstsq <- 41
+s <- seq(-1, 1, length=n_lstsq)
+rss_lstsq <- matrix(NA, nrow=n_lstsq, ncol=n_lstsq)
+for (i in 1:n_lstsq) {
+  for (j in 1:n_lstsq) {
+    rss_lstsq[i, j] <- sum((z0-s[i]*z1-s[j]*z2)^2)
   }
 }
-persp(s, s, rss, xlab="beta1", ylab="beta2", zlab="rss")
+persp(s, s, rss_lstsq, xlab="beta1", ylab="beta2", zlab="rss_lstsq")
 ```
 
 You may find the contour plot of this three dimensional surface to
@@ -103,10 +103,9 @@ k1 <- c(1, 1.1, 1.2, 1.5, 2, 2.5, 3:9)
 k1 <- c(0.1*k1, k1, 10*k1, 100*k1, 1000*k1)
 
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="black")
-m1 <- lm(z0~z1+z2-1)
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-k1 <- k1[k1>min(rss)]
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="black")
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+k1 <- k1[k1>min(rss_lstsq)]
 ```
 
 The level curves (the values where the thre dimension surface is constant)
@@ -114,12 +113,12 @@ are elliptical, which reflects the correlation in $\hat\beta_1$ and $\hat\beta_2
 induced by the correlation between z1 and z2.
 
 The small "X" represents the minimum value, or the least squares solution.
-It corresponds to height of `r round(min(rss), 2)` units.
+It corresponds to height of `r round(min(rss_lstsq), 2)` units.
 
 Now suppose that you were willing to sacrifice a bit on the residual sum
 of squares. You'd be willing to settle for a value of $\hat\beta_1$ and $\hat\beta_2$ that
 produced a residual sum of squares of `r k1[1]` instead of
-`r round(min(rss), 1)`. In exchange, you'd get a solution that was a bit
+`r round(min(rss_lstsq), 1)`. In exchange, you'd get a solution that was a bit
 closer to zero. What would that value be? Any value on the ellipse labelled 
 `r k1[1]` would be equally desirable from the least squares perspective. But
 the point on the ellipse closest to (0, 0) has the most simplicity.
@@ -133,25 +132,25 @@ draw_circle <- function(r) {
   radians <- seq(0, 2*pi, length=100)
   lines(r*sin(radians), r*cos(radians))
 }
-m2 <- glmnet(cbind(z1, z2), z0, alpha=0, intercept=FALSE, nlambda=1000)
-n2 <- dim(m2$beta)[2]
-rss_m2 <- rep(NA,n2)
-for (i in 1:n2) {
-  rss_m2[i] <- sum((z0 - m2$beta[1, i]*z1 -m2$beta[2, i]*z2)^2)
+ridge <- glmnet(cbind(z1, z2), z0, alpha=0, intercept=FALSE, nlambda=1000)
+m_ridge <- dim(ridge$beta)[2]
+rss_ridge <- rep(NA,m_ridge)
+for (i in 1:m_ridge) {
+  rss_ridge[i] <- sum((z0 - ridge$beta[1, i]*z1 -ridge$beta[2, i]*z2)^2)
 }
-r1 <- find_closest(rss_m2, k1[1])
+r1 <- find_closest(rss_ridge, k1[1])
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-contour(s, s, matrix(rss,nrow=n), levels=k1[1], add=TRUE, col="black")
-draw_circle(sqrt(m2$beta[1, r1]^2+m2$beta[2, r1]^2))
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-arrows(coef(m1)[1], coef(m1)[2], m2$beta[1, r1], m2$beta[2, r1], len=0.05)
+contour(s, s, matrix(rss_lstsq, nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss_lstsq, nrow=n_lstsq), levels=k1[1], add=TRUE, col="black")
+draw_circle(sqrt(ridge$beta[1, r1]^2+ridge$beta[2, r1]^2))
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+arrows(lstsq_beta[1], lstsq_beta[2], ridge$beta[1, r1], ridge$beta[2, r1], len=0.05)
 ```
 
 For Ridge Regression, find the circle which just barely touches the 
 ellipse corresponding to a level surface of `r k1[1]`. These values
-are $\hat\beta_1$=`r round(m2$beta[1, r1], 2)` and
-$\hat\beta_2$=`r round(m2$beta[2, r1], 2)`.
+are $\hat\beta_1$=`r round(ridge$beta[1, r1], 2)` and
+$\hat\beta_2$=`r round(ridge$beta[2, r1], 2)`.
 
 Now what do I mean by "simplicity"? In this case, I mean less of a
 tendency to produce extreme predictions. Regression coefficients that
@@ -170,24 +169,24 @@ on the residual sums of squares end of things, you could find
 the point on the level surface `r k1[2]` or `r k1[3]`.
 
 ```{r draw_two_more, fig.width=5, fig.height=5}
-r2 <- find_closest(rss_m2, k1[2])
-r3 <- find_closest(rss_m2, k1[3])
+r2 <- find_closest(rss_ridge, k1[2])
+r3 <- find_closest(rss_ridge, k1[3])
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-contour(s, s, matrix(rss,nrow=n), levels=k1[2], add=TRUE, col="black")
-draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-arrows(coef(m1)[1], coef(m1)[2], m2$beta[1, r1], m2$beta[2, r1], len=0.05)
-arrows(m2$beta[1, r1], m2$beta[2, r1], m2$beta[1, r2], m2$beta[2, r2], len=0.05)
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1[2], add=TRUE, col="black")
+draw_circle(sqrt(ridge$beta[1, r2]^2+ridge$beta[2, r2]^2))
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+arrows(lstsq_beta[1], lstsq_beta[2], ridge$beta[1, r1], ridge$beta[2, r1], len=0.05)
+arrows(ridge$beta[1, r1], ridge$beta[2, r1], ridge$beta[1, r2], ridge$beta[2, r2], len=0.05)
 
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-contour(s, s, matrix(rss,nrow=n), levels=k1[3], add=TRUE, col="black")
-draw_circle(sqrt(m2$beta[1, r3]^2+m2$beta[2, r3]^2))
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-arrows(coef(m1)[1], coef(m1)[2], m2$beta[1, r1], m2$beta[2, r1], len=0.05)
-arrows(m2$beta[1, r1], m2$beta[2, r1], m2$beta[1, r2], m2$beta[2, r2], len=0.05)
-arrows(m2$beta[1, r2], m2$beta[2, r2], m2$beta[1, r3], m2$beta[2, r3], len=0.05)
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1[3], add=TRUE, col="black")
+draw_circle(sqrt(ridge$beta[1, r3]^2+ridge$beta[2, r3]^2))
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+arrows(lstsq_beta[1], lstsq_beta[2], ridge$beta[1, r1], ridge$beta[2, r1], len=0.05)
+arrows(ridge$beta[1, r1], ridge$beta[2, r1], ridge$beta[1, r2], ridge$beta[2, r2], len=0.05)
+arrows(ridge$beta[1, r2], ridge$beta[2, r2], ridge$beta[1, r3], ridge$beta[2, r3], len=0.05)
 ```
 
 You could do this for any level surface, including those level surfaces
@@ -195,11 +194,11 @@ in between the ones shown here.
 
 ```{r draw_all_ridge_solutions, fig.width=5, fig.height=5}
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-segments(coef(m1)[1], coef(m1)[2], m2$beta[1, n2], m2$beta[2, n2])
-lines(m2$beta[1, ], m2$beta[2, ])
-arrows(m2$beta[1, 2], m2$beta[2, 2], m2$beta[1, 1], m2$beta[2, 1], len=0.05)
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+segments(lstsq_beta[1], lstsq_beta[2], ridge$beta[1, m_ridge], ridge$beta[2, m_ridge])
+lines(ridge$beta[1, ], ridge$beta[2, ])
+arrows(ridge$beta[1, 2], ridge$beta[2, 2], ridge$beta[1, 1], ridge$beta[2, 1], len=0.05)
 ```
 
 The black curve represents all the Ridge Regression solutions.
@@ -239,69 +238,66 @@ The Lasso model finds the largest diamond that just barely touches the
 level surface.
 
 ```{r draw_first_lasso, fig.width=5, fig.height=5}
-m3 <- glmnet(cbind(z1, z2), z0, alpha=1, intercept=FALSE, nlambda=1000)
-n3 <- dim(m3$beta)[2]
-rss_m3 <- rep(NA,n3)
-for (i in 1:n3) {
-  rss_m3[i] <- sum((z0 - m3$beta[1, i]*z1 -m3$beta[2, i]*z2)^2)
+lasso <- glmnet(cbind(z1, z2), z0, alpha=1, intercept=FALSE, nlambda=1000)
+m_lasso <- dim(lasso$beta)[2]
+rss_lasso <- rep(NA,m_lasso)
+for (i in 1:m_lasso) {
+  rss_lasso[i] <- sum((z0 - lasso$beta[1, i]*z1 -lasso$beta[2, i]*z2)^2)
 }
-r1 <- find_closest(rss_m3, k1[1])
-r2 <- find_closest(rss_m3, k1[2])
-r3 <- find_closest(rss_m3, k1[3])
+r1 <- find_closest(rss_lasso, k1[1])
+r2 <- find_closest(rss_lasso, k1[2])
+r3 <- find_closest(rss_lasso, k1[3])
 
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-contour(s, s, matrix(rss,nrow=n), levels=k1[1], add=TRUE, col="black")
-# draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
-d <- abs(m3$beta[1, r1])+abs(m3$beta[2, r1])
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1[1], add=TRUE, col="black")
+d <- abs(lasso$beta[1, r1])+abs(lasso$beta[2, r1])
 segments( d, 0, 0, d)
 segments( 0, d,-d, 0)
 segments(-d, 0, 0,-d)
 segments( 0,-d, d, 0)
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-arrows(coef(m1)[1], coef(m1)[2], m3$beta[1, r1], m3$beta[2, r1], len=0.05)
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+arrows(lstsq_beta[1], lstsq_beta[2], lasso$beta[1, r1], lasso$beta[2, r1], len=0.05)
 ```
 
 Here are a couple of different Lasso fits.
 
 ```{r draw_two_more_lassos, fig.width=5, fig.height=5}
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-contour(s, s, matrix(rss,nrow=n), levels=k1[2], add=TRUE, col="black")
-# draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
-d <- abs(m3$beta[1, r2])+abs(m3$beta[2, r2])
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1[2], add=TRUE, col="black")
+d <- abs(lasso$beta[1, r2])+abs(lasso$beta[2, r2])
 segments( d, 0, 0, d)
 segments( 0, d,-d, 0)
 segments(-d, 0, 0,-d)
 segments( 0,-d, d, 0)
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-arrows(coef(m1)[1], coef(m1)[2], m3$beta[1, r1], m3$beta[2, r1], len=0.05)
-arrows(m3$beta[1, r1], m3$beta[2, r1], m3$beta[1, r2], m3$beta[2, r2], len=0.05)
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+arrows(lstsq_beta[1], lstsq_beta[2], lasso$beta[1, r1], lasso$beta[2, r1], len=0.05)
+arrows(lasso$beta[1, r1], lasso$beta[2, r1], lasso$beta[1, r2], lasso$beta[2, r2], len=0.05)
 
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-contour(s, s, matrix(rss,nrow=n), levels=k1[3], add=TRUE, col="black")
-# draw_circle(sqrt(m2$beta[1, r2]^2+m2$beta[2, r2]^2))
-d <- abs(m3$beta[1, r3])+abs(m3$beta[2, r3])
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1[3], add=TRUE, col="black")
+d <- abs(lasso$beta[1, r3])+abs(lasso$beta[2, r3])
 segments( d, 0, 0, d)
 segments( 0, d,-d, 0)
 segments(-d, 0, 0,-d)
 segments( 0,-d, d, 0)
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-arrows(coef(m1)[1], coef(m1)[2], m3$beta[1, r1], m3$beta[2, r1], len=0.05)
-arrows(m3$beta[1, r1], m3$beta[2, r1], m3$beta[1, r2], m3$beta[2, r2], len=0.05)
-arrows(m3$beta[1, r2], m3$beta[2, r2], m3$beta[1, r3], m3$beta[2, r3], len=0.05)
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+arrows(lstsq_beta[1], lstsq_beta[2], lasso$beta[1, r1], lasso$beta[2, r1], len=0.05)
+arrows(lasso$beta[1, r1], lasso$beta[2, r1], lasso$beta[1, r2], lasso$beta[2, r2], len=0.05)
+arrows(lasso$beta[1, r2], lasso$beta[2, r2], lasso$beta[1, r3], lasso$beta[2, r3], len=0.05)
 ```
 
 Here is the set of all Lasso fits.
 
 ```{r draw_all_lasso_solutions, fig.width=5, fig.height=5}
 draw_axes()
-contour(s, s, matrix(rss,nrow=n), levels=k1, add=TRUE, col="gray")
-text(coef(m1)[1], coef(m1)[2], "X", cex=0.5)
-segments(coef(m1)[1], coef(m1)[2], m3$beta[1, n3], m3$beta[2, n3])
-lines(m3$beta[1, ], m3$beta[2, ])
-arrows(m3$beta[1, 2], m3$beta[2, 2], m3$beta[1, 1], m3$beta[2, 1], len=0.05)
+contour(s, s, matrix(rss_lstsq,nrow=n_lstsq), levels=k1, add=TRUE, col="gray")
+text(lstsq_beta[1], lstsq_beta[2], "X", cex=0.5)
+segments(lstsq_beta[1], lstsq_beta[2], lasso$beta[1, m_lasso], lasso$beta[2, m_lasso])
+lines(lasso$beta[1, ], lasso$beta[2, ])
+arrows(lasso$beta[1, 2], lasso$beta[2, 2], lasso$beta[1, 1], lasso$beta[2, 1], len=0.05)
 ```
 
 While both Ridge Regression and Lasso regression find solutions that are
@@ -321,6 +317,9 @@ This makes the Lasso regression model a feature selection technique, and it
 avoids all of the problems of overfitting that a simpler feature selection
 technique, stepwise regression, suffers from.
 
+The Lasso acronym (least absolute shrinkage and selection operator) is an
+description of the dual nature of this model.
+
 Let's see how the Lasso works for a slightly more complex setting. 
 The mtcars data set has ten variables. Let's use the last nine
 of these variables to predict the first variable, mpg.
@@ -332,35 +331,69 @@ still learn a lot from this small example.
 # By default, the glmnet function standardizes all the independent variables,
 # but I also wanted to standardize the dependent variable for consistency
 # with the earlier examples.
-m1 <- glmnet(x=as.matrix(mtcars[, -1]), y=standardize(mtcars[, 1]), intercept=FALSE)
-print(m1)
-summary(m1)
-plot(m1)
+lasso <- glmnet(as.matrix(mtcars[, -1]), standardize(mtcars[, 1]), alpha=1, intercept=FALSE, nlambda=1000)
+plot(lasso)
 ```
 
-The plot is not labelled, but it shows the shrinkage of the lasso coefficients
-as you move from the right to the left. Here is a series of plots showing how the
-Lasso coefficients change.
+The plot above shows the shrinkage of the lasso coefficients
+as you move from the right to the left, but unfortunately,
+it is not clearly labelled. Here is a series of plots 
+with better labels showing how the Lasso coefficients change.
 
 ```{r lasso_with_labels, fig.width=5, fig.height=5}
-n <- dim(m1$beta)[1]
-m <- dim(m1$beta)[2]
-l1_dist <- apply(m1$beta, 2, function(x) sum(abs(x)))
-d1 <- 0.02*l1_dist[m]
-d2 <- 0.18*l1_dist[m]
-for (j in c(80,60,50,40,30,25,20,15,10,8,6,4,3)) {
+n <- dim(lasso$beta)[1]
+l1_dist <- apply(lasso$beta, 2, function(x) sum(abs(x)))
+d1 <- 0.02*l1_dist[m_lasso]
+d2 <- 0.18*l1_dist[m_lasso]
+for (l in 12:1) {
+  fraction <- l/12
+  j <- max(which(l1_dist <= fraction*l1_dist[m_lasso]))
   xl <- paste("L1 distance: ", round(l1_dist[j], 2))
-  plot(m1, xlim=c(0, 1.4*max(l1_dist)),type="n", xlab=xl)
+  plot(lasso, xlim=c(0, 1.4*max(l1_dist)),type="n", xlab=xl)
+  offset <- strwidth("-", units="user")
   for (i in 1:n) {
-    lines(l1_dist[1:m], m1$beta[i, 1:m], col="lightgray")
-    lines(l1_dist[1:j], m1$beta[i, 1:j])
-    if (abs(m1$beta[i,j]) > 0) {
-      text(d1+l1_dist[j], m1$beta[i, j], names(mtcars[i+1]), adj=0)
-      text(d2+l1_dist[j], m1$beta[i, j], signif(m1$beta[i, j], 2), adj=0)
+    lines(l1_dist[1:m_lasso], lasso$beta[i, 1:m_lasso], col="lightgray")
+    lines(l1_dist[1:j], lasso$beta[i, 1:j])
+    if (abs(lasso$beta[i,j]) > 0) {
+      text(d1+l1_dist[j], lasso$beta[i, j], names(mtcars[i+1]), adj=0)
+      text(d2+l1_dist[j]+(lasso$beta[i, j]>0)*offset, lasso$beta[i, j], signif(lasso$beta[i, j], 2), adj=0)
     }
   }
 }
 ```
+
+Contrast this with Ridge Regression, which flattens out everything, but doesn't zero out any of the 
+regression coefficients.
+
+```{r ridge_with_labels, fig.width=5, fig.height=5}
+ridge <- glmnet(as.matrix(mtcars[, -1]), standardize(mtcars[, 1]), alpha=0, intercept=FALSE, nlambda=1000)
+m_ridge <- dim(ridge$beta)[2]
+l2_dist <- apply(ridge$beta, 2, function(x) sqrt(sum(x^2)))
+d1 <- 0.02*l2_dist[m_ridge]
+d2 <- 0.18*l2_dist[m_ridge]
+for (l in 12:1) {
+  fraction <- l/12
+  j <- max(which(l2_dist <= fraction*l2_dist[m_ridge]))
+  xl <- paste("L2 distance: ", round(l2_dist[j], 2))
+  plot(ridge, xlim=c(0, 1.4*max(l2_dist)),type="n", xlab=xl)
+  offset <- strwidth("-", units="user")
+  for (i in 1:n) {
+    lines(l2_dist[1:m_ridge], ridge$beta[i, 1:m_ridge], col="lightgray")
+    lines(l2_dist[1:j], ridge$beta[i, 1:j])
+    if (abs(ridge$beta[i,j]) > 0) {
+      text(d1+l2_dist[j], ridge$beta[i, j], names(mtcars[i+1]), adj=0)
+      text(d2+l2_dist[j]+(ridge$beta[i, j]>0)*offset, ridge$beta[i, j], signif(ridge$beta[i, j], 2), adj=0)
+    }
+  }
+}
+```
+
+
+You can get more complicated than this. Although the Lasso regression model does fairly well,
+it can sometimes get in a bit of trouble if there are several variables which are highly
+intercorrelated and which all predict the dependent variable with about the same
+strength. You might find better performance with Elastic Net regression, a hybrid model
+that combines some of the features of Ridge Regression with Lasso regression.
 
 Save everything for possible re-use.
 

@@ -11,7 +11,7 @@ library("glmnet")
 The lasso regression model was originally developed in 1989.
 It is an alterative to the classic least squares estimate 
 that avoids many of the problems with overfitting when
-you have a large number of indepednent variables.
+you have a large number of indepednent variables. 
 
 You can't understand the lasso fully without understanding some
 of the context of other regression models. The examples will look, 

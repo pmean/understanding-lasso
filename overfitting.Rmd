@@ -1,0 +1,143 @@
+---
+title: "Example of overfitting"
+author: "Steve Simon"
+date: "November 10, 2016"
+output: html_document
+---
+
+
+
+```{r read}
+fn <- "http://www.statsci.org/data/oz/firearms.txt"
+d0 <- read.table(file=fn, header=TRUE, as.is=TRUE)
+d0
+d1 <- d0[-15,]
+d1
+d2 <- data.frame(Year=seq(d0$Year[1], d0$Year[15], by=0.125))
+n1 <- which(d2$Year %in% 1983:1996)
+n2 <- which(d2$Year==1997)
+```
+Here's a function to draw a graph that contains:
+
+a. The data used in the regression equation (black)
+
+b. The data not used in the regression equation (gray)
+
+c. The "in-sample" prediction (green)
+
+d. The "out-of-sample" prediction (red)
+
+```{r function}
+poly.fit <- function(n) {
+  # Draw the basic plotting frame without any points
+  plot(d0$Year, d0$Rate, type="n", ylim=c(2,5),
+    xlab="Year", ylab="Death rate per 100,000")
+  # Show the values used in the regression model in black
+  text(d0$Year[-15], d0$Rate[-15], d0$Rate[-15], col="black")
+  # Show the value not used in gray
+  text(d0$Year[ 15], d0$Rate[ 15], d0$Rate[ 15], col="gray")
+  # Fit a polynomial of order n
+  poly.model <- lm(Rate ~ poly(Year, degree=n), data=d1)
+  # Compute predicted values
+  poly.predict <- predict(poly.model, newdata=d2)
+  # Draw the "in-sample" prediction curve in green
+  lines(d2$Year[1:max(n1)], poly.predict[1:max(n1)], col="green")
+  # Draw the "out-of-sample" prediction curve in red
+  lines(d2$Year[max(n1):n2], poly.predict[max(n1):n2], col="red")
+  # Show the "in-sample" predictions in green
+  text(d2$Year[n1], poly.predict[n1], round(poly.predict[n1], 2), col="green")
+  # Show the "out-of-sample" predictions in red
+  text(d2$Year[n2], poly.predict[n2], round(poly.predict[n2], 2), col="red")
+  # If the "out-of-sample" prediction is too large, show it in the top margin
+  if (poly.predict[n2] > 5) {mtext(round(poly.predict[n2], 2), side=3, adj=1, col="red")}
+  # If the "out-of-sample" prediction is too small, show it in the bottom margin
+  if (poly.predict[n2] < 2) {mtext(round(poly.predict[n2], 2), side=1, adj=1, col="red")}
+  # Remind yourself what type of polynomial you are fitting
+  title(paste("Polynomial of order", n))
+}
+```
+
+Let's look at a sequence of polynomial fits.
+
+```{r fit_1}
+poly.fit( 1)
+```
+
+The linear regression fits reasonably well. It's not perfect, though. There is a sharp drop in 1989, a murder rate of 3.4. This is probably just "noise" but the effort of the higher order polynomials to get better and better fits at this "in-sample" point end up twisting the polynomial into knots and causing the "out-of-sample" prediction to suffer. For now, the prediction for 1997, the "out-of-sample" prediction, is not too far from 2.3. 
+
+```{r fit_2}
+poly.fit( 2)
+```
+
+The quadratic regression looks a little bit better. In particular, the "out-of-sample" prediction looks to be improved. You're still having trouble with the fit at 3.4 (year 1989).
+
+```{r fit_3}
+poly.fit( 3)
+```
+
+This is a bit disturbing. The cubic regression flattens things out at the end, making for a slightly worse "out-of-sample" prediction. The reason it flattens out is that the last four murder rates: `r paste(d0$Rate[11:14], collapse=", ")` are somewhat flat and your cubic polynomial is trying hard (maybe a bit too hard) to model this late flattening trend. 
+
+```{r fit_4}
+poly.fit( 4)
+```
+
+The quartic (order 4 polynomial) regression is fairly similar to the cubic.
+
+```{r fit_5}
+poly.fit( 5)
+```
+
+The quintic (order 5 polynomial) regression is big-time trouble. That flat trend in the last four years is now being interpreted as a drop and rebound. So the "out-of-sample" prediction is much higher than any of the previous four years. Could the predictions get any worse? The answer follows.
+```{r fit_6}
+poly.fit( 6)
+```
+
+Here's an order 6 polynomial. I'm not sure if you should call it "hexic" like the Latin root or "sexic" like the Greek root. The "out-of-sample" prediction is now larger than any of the individual data points.
+
+```{r fit_7}
+poly.fit( 7)
+```
+
+Here's an otder 7 polynomial. It's a little bit better than the order 6 polynomial. Maybe some sanity will return to this process. Notice throughout the sequence of polynomial fits how hard it is for the polynomial to fit that interior point of 3.4 (1989). It creeps slowly and slowly towards a better fit, but the progress made ends up producing too much wiggling at other places.
+
+```{r fit_8}
+poly.fit( 8)
+```
+
+The order 8 polynomial is a disaster. Somehow the model forecasts a very steep plunge at the end, producing a negative murder rate.
+
+```{r fit_9}
+poly.fit( 9)
+```
+
+The order 9 polynomial shifts the prediction up high again, but it's not nearly as bad as some of the earlier polynomials. But do notice that there is an odd looking peak near the beginning (between 1983 and 1984). This will get a lot worse.
+
+```{r fit10}
+poly.fit(10)
+```
+
+You're probably shrieking at the sight of the tenth order polynomial. The slight bump between 1983 and 1984 has become a deep valley. Another deep valley appears between 1995 and 1996. And the "out-of-sample" prediction is too big by an order of magnitude.
+
+```{r fit11}
+poly.fit(11)
+```
+
+In addition to the two valleys, you can now see a couple of small bumps: between 1984 and 1985 and between 1994 and 1995.
+
+```{r fit12}
+poly.fit(12)
+```
+
+Not much of a change here.
+
+```{r fit13}
+poly.fit(13)
+```
+
+This is an order 13 polynomial. It is the highest order polynomial that you can fit to 14 data points. Notice how the small peaks and valleys between some of the years have grown so exaggerated and are at times off of the charts. But the telling number is the "out-of-sample" prediction, which is too large by two or three orders of magnitude.
+
+Now, no sane statistician would fit an order 13 polynomial to any data set, especially not to a data set with only 14 data points. What you should notice, however, is that "out-of-sample" prediction at 1997 does so poorly. For some of the later polynomials, the predictions at the mid-year values (e.g., between 1983 and 1984) also behave badly.
+
+You are also fortunate here. The problems with poor predictions due to overfitting are easy to see when you are looking at a two-dimensional graph. Some of the solutions, such as spline models, are easy to implement in this case as well.
+
+But overfitting is much trickier when you are building a regression model with many independent variables. You can't easily look at a graph when you are fitting a model with hundreds or thousands of independent variables. So you need alternative approaches to diagnose and prevent overfitting.

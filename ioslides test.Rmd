@@ -1,0 +1,129 @@
+---
+title: "Untitled"
+author: "Steve Simon"
+date: "November 12, 2016"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+```
+
+## Here's a data set to illustrate overfitting
+
+```{r read}
+fn <- "http://www.statsci.org/data/oz/firearms.txt"
+d0 <- read.table(file=fn, header=TRUE, as.is=TRUE)
+d0
+cat("Source:", fn)
+d1 <- d0[-15, ]
+d2 <- data.frame(Year=seq(d0$Year[1], d0$Year[15], by=0.125))
+n1 <- which(d2$Year %in% 1983:1996)
+n2 <- which(d2$Year==1997)
+```
+
+## Here's some code to display the data and the predictions.
+
+First, display the data.
+
+```{r function1, echo=TRUE}
+draw_raw_data <- function() {
+  # Eliminate top margin
+  par(mar=c(4.1, 4.1, 0.1, 0.6))
+  # Draw the basic plotting frame without any points
+  plot(d0$Year, d0$Rate, type="n", ylim=c(2,5),
+    xlab="Year", ylab="Death rate per 100,000")
+  # Show the values used in the regression model in black
+  text(d0$Year[-15], d0$Rate[-15], d0$Rate[-15], col="black", cex=0.75)
+  # Show the value not used in gray
+  text(d0$Year[ 15], d0$Rate[ 15], d0$Rate[ 15], col="gray", cex=0.75)
+}
+```
+
+## Here's some code to display the data and the predictions.
+
+Next, code for displaying predictions
+
+```{r function2, echo=TRUE}
+draw_predictions <- function(in_sample, out_of_sample, mod) {
+  # Compute in-sample predictions
+  yhat <- predict(mod, newdata=data.frame(Year=in_sample))
+  # Display in-sample predictions in green
+  text(in_sample, yhat, round(yhat, 2), col="green", cex=0.75)
+  # Compute out-of-sample predictions
+  yhat <- predict(mod, newdata=data.frame(Year=out_of_sample))
+  # Display out-of-sample predictions in red
+  text(out_of_sample, yhat, round(yhat, 2), col="red", cex=0.75)
+}
+```
+
+## Here's some code to display the data and the predictions.
+
+Code for displaying the curve
+
+```{r function3, echo=TRUE}
+draw_curve <- function(in_sample, out_of_sample, mod) {
+  # Compute in-sample curve
+  yhat <- predict(mod, newdata=data.frame(Year=in_sample))
+  # Display in-sample predictions in green
+  lines(in_sample, yhat, col="green")
+  # Compute out-of-sample curve
+  yhat <- predict(mod, newdata=data.frame(Year=out_of_sample))
+  # Display out-of-sample predictions in red
+  lines(out_of_sample, yhat, col="red")
+}
+```
+
+## Here's some code to display the data and the predictions.
+
+Finally, code to put it all together
+
+```{r function4, echo=TRUE}
+draw_complete_plot <- function(n) {
+  draw_raw_data()
+  mod <- lm(Rate ~ poly(Year, degree=n), data=d1)
+  in_sample_points <- d0$Year[-15]
+  out_of_sample_points <- d0$Year[15]
+  draw_predictions(in_sample_points, out_of_sample_points, mod)
+  in_sample_sequence <- seq(d0$Year[1], d0$Year[14], length=100)
+  out_of_sample_sequence <- seq(d0$Year[14], d0$Year[15], length=100)
+  draw_curve(in_sample_sequence, out_of_sample_sequence, mod)
+}
+```
+
+## Let's look at a sequence of polynomials.
+
+<div class="columns-2">
+
+```{r fit_1, fig.width=4, fig.height=5}
+draw_complete_plot( 1)
+```
+
+
+The linear regression fits reasonably well. The prediction for 1997, the "out-of-sample" prediction, is not too far from 2.3. 
+
+</div>
+
+## Let's look at a sequence of polynomials.
+
+<div class="columns-2">
+
+```{r fit_2, fig.width=4, fig.height=5}
+draw_complete_plot( 2)
+```
+
+The quadratic regression looks a little bit better. In particular, the "out-of-sample" prediction looks to be improved.
+
+</div>
+
+## Let's look at a sequence of polynomials.
+
+<div class="columns-2">
+
+```{r fit_3, fig.width=4, fig.height=5}
+draw_complete_plot( 3)
+```
+
+This is a bit disturbing. The cubic regression flattens things out at the end, making for a slightly worse "out-of-sample" prediction. The reason it flattens out is that the last four murder rates: `r paste(d0$Rate[11:14], collapse=", ")` are somewhat flat and your cubic polynomial is trying hard (maybe a bit too hard) to model this late flattening trend. 
+
+</div>

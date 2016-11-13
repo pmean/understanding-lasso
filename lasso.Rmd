@@ -332,6 +332,7 @@ still learn a lot from this small example.
 # but I also wanted to standardize the dependent variable for consistency
 # with the earlier examples.
 lasso <- glmnet(as.matrix(mtcars[, -1]), standardize(mtcars[, 1]), alpha=1, intercept=FALSE, nlambda=1000)
+library("glmnet")
 plot(lasso)
 ```
 
